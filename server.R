@@ -35,5 +35,13 @@ shinyServer(function(input, output) {
                 opacity = 1)
 
   })
+  
+  output$propClasseText <- renderText({
+    if(input$classeCarto != "Toutes"){
+      stations.tmp <- subset(stations, Daym == input$jourSemaine)
+      prop <- round(table(stations.tmp$cluster5)[input$classeCarto]/sum(table(classif.station$cluster5))*100, 1)
+      paste0("Pour le ", input$jourSemaine, ", la classe ", input$classeCarto, " représente ", prop, "% des stations")
+    }
+  })
 
 })

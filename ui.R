@@ -13,7 +13,8 @@ shinyUI(navbarPage("Nom appli",
                             sidebarLayout(
                               sidebarPanel(
                                 selectInput("jourSemaine", "Jour de la semaine", c("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"), selected="lundi"),
-                                selectInput("classeCarto", "Classe", c("Toutes", "Pleine", "Hausse matin & baisse soir", "Baisse matin", "Baisse matin & hausse soir", "Vide"), selected="Toutes")
+                                selectInput("classeCarto", "Classe", c("Toutes", "Pleine", "Hausse matin & baisse soir", "Baisse matin", "Baisse matin & hausse soir", "Vide"), selected="Toutes"),
+                                textOutput("propClasseText")
                               ),
                           
                               # Show a plot of the generated distribution
