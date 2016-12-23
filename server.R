@@ -21,6 +21,10 @@ shinyServer(function(input, output) {
   output$carto <- renderLeaflet({
     
     stations.tmp <- subset(stations, Daym == input$jourSemaine)
+    
+    if(input$classeCarto != "Toutes"){
+      stations.tmp <- subset(stations.tmp, cluster5 == input$classeCarto)
+    }
 
     leaflet(stations.tmp) %>% 
       addTiles() %>%
