@@ -1,0 +1,8 @@
+name: velibshiny
+title:
+account: classif-stations-velib
+server: shinyapps.io
+appId: 146898
+bundleId: 658473
+url: https://classif-stations-velib.shinyapps.io/velibshiny/
+when: 1482415762.03742
