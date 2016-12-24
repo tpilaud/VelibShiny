@@ -16,12 +16,19 @@ shinyUI(navbarPage("CSV - Classif Stations Velib",
                                 uiOutput("secondSelection"),
                                 textOutput("propClasseText")
                               ),
-                          
-                              # Show a plot of the generated distribution
                               mainPanel(
                                 leafletOutput("carto", width = "100%", height = 600)
                                 )
                             )
                    ),
-                   tabPanel("Profils")
+                   tabPanel("Profils moyens",
+                            sidebarLayout(
+                              sidebarPanel(
+                                selectInput("typeJour2", "Type de jour", c("Jour de la semaine", "Mercredi", "Samedi/Dimanche"), selected="Jour de la semaine"),
+                                uiOutput("secondSelection2")
+                              ),
+                              mainPanel(
+                                plotOutput("profilsPlot")
+                              )
+                            ))
 ))
