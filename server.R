@@ -1,35 +1,42 @@
-
-# This is the server logic for a Shiny web application.
-# You can find out more about building applications with Shiny here:
-#
-# http://shiny.rstudio.com
-#
 library(shiny)
 library(leaflet)
 library(dplyr)
-load("stations.RData")
-# stations$cluster5 <- factor(sample(1:5, replace=T, nrow(stations)))
-load("classif.station.RData")
-stations <- inner_join(stations, classif.station)
-cols <- rainbow(length(levels(stations$cluster5)), alpha=NULL)
-stations$colors <- cols[unclass(stations$cluster5)]
-stations$pop <- paste(stations$name, stations$cluster5)
+require(RColorBrewer)
 
+load("stations.RData")
+load("classif.station.RData")
+
+stations <- inner_join(stations, classif.station)
+# cols <- brewer.pal(length(levels(stations$cluster5)), "Dark2")
+# stations$colors <- cols[unclass(stations$cluster5)]
+stations$pop <- paste(stations$name, stations$classe)
 
 shinyServer(function(input, output) {
 
+  output$secondSelection <- renderUI({
+    selectInput("classeCarto", "Classe", choices = c("Toutes", unique(as.character(stations[stations$typeJour==input$typeJour,"classe"]))))
+  })
+  
   output$carto <- renderLeaflet({
     
-    stations.tmp <- subset(stations, Daym == input$jourSemaine)
+    # Filtre sur le type de jour selectionne
+    stations.tmp <- subset(stations, typeJour == input$typeJour)
+    stations.tmp$numeroClasse <- dense_rank(unclass(stations.tmp$classe))
     
+    # Definition des couleurs
+    cols <- brewer.pal(length(unique(stations.tmp$numeroClasse)), "Dark2")
+    stations.tmp$colors <- cols[stations.tmp$numeroClasse]
+    
+    # Filtre sur la classe selectionnee
     if(input$classeCarto != "Toutes"){
-      stations.tmp <- subset(stations.tmp, cluster5 == input$classeCarto)
+      stations.tmp <- subset(stations.tmp, classe == input$classeCarto)
     }
 
+    # Carte interactive
     leaflet(stations.tmp) %>% 
       addTiles() %>%
-      addCircles(lat = ~latitude, lng = ~longitude, popup = ~ pop , color = ~ colors) %>%
-      addLegend("topright", colors = unique(stations$colors), labels = unique(stations$cluster5),
+      addCircles(lat = ~latitude, lng = ~longitude, popup = ~ pop , color = ~ colors, opacity = 1, fillOpacity = 1) %>%
+      addLegend("topright", colors = unique(stations.tmp$colors), labels = unique(stations.tmp$classe),
                 title = "Classes de stations",
                 labFormat = labelFormat(prefix = "$"),
                 opacity = 1)
@@ -38,9 +45,9 @@ shinyServer(function(input, output) {
   
   output$propClasseText <- renderText({
     if(input$classeCarto != "Toutes"){
-      stations.tmp <- subset(stations, Daym == input$jourSemaine)
-      prop <- round(table(stations.tmp$cluster5)[input$classeCarto]/sum(table(classif.station$cluster5))*100, 1)
-      paste0("Pour le ", input$jourSemaine, ", la classe ", input$classeCarto, " représente ", prop, "% des stations")
+      stations.tmp <- subset(stations, typeJour == input$typeJour)
+      prop <- round(table(stations.tmp$classe)[input$classeCarto]/sum(table(stations.tmp$classe))*100, 1)
+      paste0("Pour les ", input$typeJour, ", la classe ", input$classeCarto, " représente ", prop, "% des stations")
     }
   })
 

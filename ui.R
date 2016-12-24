@@ -8,12 +8,12 @@
 library(shiny)
 library(leaflet)
 
-shinyUI(navbarPage("Nom appli",
+shinyUI(navbarPage("CSV - Classif Stations Velib",
                    tabPanel("Cartographie",
                             sidebarLayout(
                               sidebarPanel(
-                                selectInput("jourSemaine", "Jour de la semaine", c("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"), selected="lundi"),
-                                selectInput("classeCarto", "Classe", c("Toutes", "Pleine", "Hausse matin & baisse soir", "Baisse matin", "Baisse matin & hausse soir", "Vide"), selected="Toutes"),
+                                selectInput("typeJour", "Type de jour", c("Jour de la semaine", "Mercredi", "Samedi/Dimanche"), selected="Jour de la semaine"),
+                                uiOutput("secondSelection"),
                                 textOutput("propClasseText")
                               ),
                           
