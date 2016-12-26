@@ -16,11 +16,7 @@ stations$pop <- paste(stations$name, stations$classe)
 shinyServer(function(input, output) {
 
   output$secondSelection <- renderUI({
-    selectInput("classeCarto", "Classe", choices = c("Toutes", unique(as.character(stations[stations$typeJour==input$typeJour,"classe"]))))
-  })
-  
-  output$secondSelection2 <- renderUI({
-    selectInput("classeCarto2", "Classe", choices = c(unique(as.character(stations[stations$typeJour==input$typeJour2,"classe"]))))
+    selectInput("classeSelect", "Classe", choices = c("Toutes", unique(as.character(stations[stations$typeJour==input$typeJour,"classe"]))))
   })
   
   output$carto <- renderLeaflet({
@@ -34,9 +30,9 @@ shinyServer(function(input, output) {
     stations.tmp$colors <- cols[stations.tmp$numeroClasse]
     
     # Filtre sur la classe selectionnee
-    if(!is.null(input$classeCarto)){
-      if(input$classeCarto != "Toutes"){
-        stations.tmp <- subset(stations.tmp, classe == input$classeCarto)
+    if(!is.null(input$classeSelect)){
+      if(input$classeSelect != "Toutes"){
+        stations.tmp <- subset(stations.tmp, classe == input$classeSelect)
       }
     }
 
@@ -52,11 +48,11 @@ shinyServer(function(input, output) {
   })
   
   output$propClasseText <- renderText({
-    if(!is.null(input$classeCarto)){
-      if(input$classeCarto != "Toutes"){
+    if(!is.null(input$classeSelect)){
+      if(input$classeSelect != "Toutes"){
         stations.tmp <- subset(stations, typeJour == input$typeJour)
-        prop <- round(table(stations.tmp$classe)[input$classeCarto]/sum(table(stations.tmp$classe))*100, 1)
-        paste0("Pour les ", input$typeJour, ", la classe ", input$classeCarto, " représente ", prop, "% des stations")
+        prop <- round(table(stations.tmp$classe)[input$classeSelect]/sum(table(stations.tmp$classe))*100, 1)
+        paste0("Pour les ", input$typeJour, ", la classe ", input$classeSelect, " représente ", prop, "% des stations")
       }
     }
 
@@ -64,23 +60,41 @@ shinyServer(function(input, output) {
   
   output$profilsPlot <- renderPlot({
     
-    profils.moy.tmp <- subset(profils.moy, typeJour == input$typeJour2)
-
-    # Definition des couleurs
-    cols <- brewer.pal(length(unique(profils.moy.tmp$classe)), "Dark2")
+    # Filtre sur le type de jour selectionne
+    profils.moy.tmp <- subset(profils.moy, typeJour == input$typeJour)
+    profils.moy.tmp$numeroClasse <- dense_rank(unclass(profils.moy.tmp$classe))
     classes <- unique(profils.moy.tmp$classe)
     
-    profils.moy.tmp <- subset(profils.moy.tmp, classe == input$classeCarto2)
-    
-    ggplot(profils.moy.tmp) + 
-      aes(x=time, y=yspline) +
-      geom_line(size=1.5, col=cols[match(input$classeCarto2, classes)]) +
-      ylim(c(0,1)) +
-      xlab("Heure de la journée") +
-      ylab("Taux de vélos disponibles") +
-      ggtitle(paste("Profil moyen de la classe", input$classeCarto2)) +
-      theme_bw() +
-      theme(legend.position="none", plot.title=element_text(size = rel(1.5)))
+    # Definition des couleurs
+    cols <- brewer.pal(length(classes), "Dark2")
+
+    if(!is.null(input$classeSelect)){
+      if(input$classeSelect != "Toutes"){
+        profils.moy.tmp <- subset(profils.moy.tmp, classe == input$classeSelect)
+        numeroClasse <- unique(profils.moy.tmp$numeroClasse)
+        color <- cols[numeroClasse]
+        ggplot(profils.moy.tmp) + 
+          aes(x=time, y=yspline) +
+          geom_line(size=1.5, col=color) +
+          ylim(c(0,1)) +
+          xlab("Heure de la journée") +
+          ylab("Taux de vélos disponibles") +
+          ggtitle(paste("Profil moyen de la classe", input$classeSelect)) +
+          theme_bw() +
+          theme(legend.position="none", plot.title=element_text(size = rel(1.5)))
+      }else{
+        ggplot(profils.moy.tmp) + 
+          aes(x=time, y=yspline, col=as.character(numeroClasse)) +
+          geom_line(size=1.5) +
+          ylim(c(0,1)) +
+          xlab("Heure de la journée") +
+          ylab("Taux de vélos disponibles") +
+          ggtitle(paste("Profil moyen de la classe", input$classeSelect)) +
+          theme_bw() +
+          theme(legend.position="none", plot.title=element_text(size = rel(1.5))) +
+          scale_colour_brewer(palette = "Dark2")
+      }
+    }
       
   })
 
