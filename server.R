@@ -11,7 +11,7 @@ load("profils.moy.RData")
 stations <- inner_join(stations, classif.station)
 # cols <- brewer.pal(length(levels(stations$cluster5)), "Dark2")
 # stations$colors <- cols[unclass(stations$cluster5)]
-stations$pop <- paste(stations$name, stations$classe)
+stations$pop <- paste0(stations$name, " / Classe : ", stations$classe)
 
 shinyServer(function(input, output) {
 
@@ -76,23 +76,23 @@ shinyServer(function(input, output) {
         ggplot(profils.moy.tmp) + 
           aes(x=time, y=yspline) +
           geom_line(size=1.5, col=color) +
-          ylim(c(0,1)) +
-          xlab("Heure de la journée") +
-          ylab("Taux de vélos disponibles") +
-          ggtitle(paste("Profil moyen de la classe", input$classeSelect)) +
-          theme_bw() +
-          theme(legend.position="none", plot.title=element_text(size = rel(1.5)))
-      }else{
-        ggplot(profils.moy.tmp) + 
-          aes(x=time, y=yspline, col=as.character(numeroClasse)) +
-          geom_line(size=1.5) +
-          ylim(c(0,1)) +
           xlab("Heure de la journée") +
           ylab("Taux de vélos disponibles") +
           ggtitle(paste("Profil moyen de la classe", input$classeSelect)) +
           theme_bw() +
           theme(legend.position="none", plot.title=element_text(size = rel(1.5))) +
-          scale_colour_brewer(palette = "Dark2")
+          scale_y_continuous(labels = scales::percent, limits = c(0,1))
+      }else{
+        ggplot(profils.moy.tmp) + 
+          aes(x=time, y=yspline, col=as.character(numeroClasse)) +
+          geom_line(size=1.5) +
+          xlab("Heure de la journée") +
+          ylab("Taux de vélos disponibles") +
+          ggtitle(paste("Profil moyen de la classe", input$classeSelect)) +
+          theme_bw() +
+          theme(legend.position="none", plot.title=element_text(size = rel(1.5))) +
+          scale_colour_brewer(palette = "Dark2") +
+          scale_y_continuous(labels = scales::percent, limits = c(0,1))
       }
     }
       
