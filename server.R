@@ -1,8 +1,6 @@
 require(shiny)
 require(leaflet)
 require(dplyr)
-require(RColorBrewer)
-require(fields)
 require(ggplot2)
 require(reshape2)
 
@@ -13,6 +11,9 @@ load("profils.moy.jour.RData")
 names(profils.moy.jour)[names(profils.moy.jour)=="yspline"] <- "y"
 load("profils.moy.semaine.RData")
 names(profils.moy.semaine)[names(profils.moy.semaine)=="yfourier"] <- "y"
+
+id.class.jour <- unique(classif.jour$classe)
+id.class.semaine <- unique(classif.semaine$classe)
 
 # Jointure des tables stations et classif
 stations.jour <- inner_join(stations, classif.jour)
@@ -80,12 +81,12 @@ shinyServer(function(input, output) {
     # Filtre sur le type de jour selectionne
     if(input$mailleClassifSelect=="A la journée"){
       stations.tmp <- subset(stations.jour, typeJour == input$typeSelect)
+      stations.tmp$numeroClasse <- dense_rank(sapply(stations.tmp$classe, function(x) which(id.class.jour==x)))
     }else{
       stations.tmp <- stations.semaine
+      stations.tmp$numeroClasse <- dense_rank(sapply(stations.tmp$classe, function(x) which(id.class.semaine==x)))
     }
     
-    stations.tmp$numeroClasse <- dense_rank(unclass(stations.tmp$classe))
-
     # Definition des couleurs
     cols <- cols[1:length(unique(stations.tmp$numeroClasse))]
     stations.tmp$colors <- cols[stations.tmp$numeroClasse]
@@ -130,11 +131,11 @@ shinyServer(function(input, output) {
     # Filtre sur le type de jour selectionne
     if(input$mailleClassifSelect == "A la journée"){
       profils.moy.tmp <- subset(profils.moy.jour, typeJour == input$typeSelect)
+      profils.moy.tmp$numeroClasse <- dense_rank(sapply(profils.moy.tmp$classe, function(x) which(id.class.jour==x)))
     }else{
       profils.moy.tmp <- profils.moy.semaine
+      profils.moy.tmp$numeroClasse <- dense_rank(sapply(profils.moy.tmp$classe, function(x) which(id.class.semaine==x)))
     }
-    profils.moy.tmp$numeroClasse <- dense_rank(unclass(profils.moy.tmp$classe))
-    classes <- unique(profils.moy.tmp$classe)
 
     # Definition des couleurs
     cols <- cols[1:length(unique(profils.moy.tmp$numeroClasse))]
@@ -155,7 +156,7 @@ shinyServer(function(input, output) {
           scale_y_continuous(labels = scales::percent, limits = c(0,1))
       }else{
         ggplot(profils.moy.tmp) +
-          aes(x=time, y=y, col=as.character(numeroClasse)) +
+          aes(x=time, y=y, col=as.factor(numeroClasse)) +
           geom_line(size=1.5) +
           xlab("Temps") +
           ylab("Taux de vélos disponibles") +
