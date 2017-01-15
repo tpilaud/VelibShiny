@@ -15,14 +15,17 @@ shinyUI(fluidPage(
   sidebarLayout(
     
     sidebarPanel(
-      selectInput("typeJour", "Type de jour", c("Jour de la semaine", "Mercredi", "Samedi/Dimanche"), selected="Jour de la semaine"),
-      uiOutput("secondSelection"),
-      textOutput("propClasseText")
+      selectInput("mailleClassifSelect", "Maille de la classification", c("A la journée", "A la semaine"), selected="A la journée"),
+      uiOutput("selectionTypeJour"),
+      uiOutput("selectionClasse")
+      ,
+      uiOutput("propClasseText")
     ),
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Cartographie", leafletOutput("carto", width = "100%", height = 600)), 
+        tabPanel("Cartographie", leafletOutput("carto", width = "100%", height = 600))
+        ,
         tabPanel("Profils moyens", plotOutput("profilsPlot"))
       )
     )

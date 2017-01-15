@@ -2,33 +2,94 @@ require(shiny)
 require(leaflet)
 require(dplyr)
 require(RColorBrewer)
+require(fields)
 require(ggplot2)
+require(reshape2)
 
 load("stations.RData")
-load("classif.station.RData")
-load("profils.moy.RData")
+load("shiny.classif.jour.RData")
+load("shiny.classif.semaine.RData")
+load("profils.moy.jour.RData")
+names(profils.moy.jour)[names(profils.moy.jour)=="yspline"] <- "y"
+load("profils.moy.semaine.RData")
+names(profils.moy.semaine)[names(profils.moy.semaine)=="yfourier"] <- "y"
 
-stations <- inner_join(stations, classif.station)
-# cols <- brewer.pal(length(levels(stations$cluster5)), "Dark2")
-# stations$colors <- cols[unclass(stations$cluster5)]
-stations$pop <- paste0(stations$name, " / Classe : ", stations$classe)
+# Jointure des tables stations et classif
+stations.jour <- inner_join(stations, classif.jour)
+stations.semaine <- inner_join(stations, classif.semaine)
+
+# Preparation du contenu de la popup
+pop.jour <- stations.jour
+pop.jour$pop <- paste0(pop.jour$classe, " : ", pop.jour$nb, "/", pop.jour$nb_total)
+pop.jour <- dcast(pop.jour, number + name + address + typeJour ~ rank, value.var = "pop")
+pop.jour[is.na(pop.jour)] <- ""
+pop.jour <- cbind.data.frame(number = pop.jour$number, typeJour = pop.jour$typeJour, 
+                             pop = paste0("<font size=\"3\"><b>", pop.jour$name, "</b></font size=\"3\"><br>",
+                                          "<em>", pop.jour$address, "</em><br><br>",
+                                          "<b>", "Classes identifiées :", "</b><br>",
+                                    pop.jour$`1`, "<br>", pop.jour$`2`, "<br>", pop.jour$`3`, "<br>", pop.jour$`4`, "<br>",
+                                    pop.jour$`5`, "<br>", pop.jour$`6`, "<br>", pop.jour$`7`),
+                             stringsAsFactors = F)
+
+stations.jour <- stations.jour %>%
+  filter(rank == 1) %>%
+  select(-rank, -nb, -nb_total)
+stations.jour <- inner_join(stations.jour, pop.jour)
+
+pop.semaine <- stations.semaine
+pop.semaine$pop <- paste0(pop.semaine$classe, " : ", pop.semaine$nb, "/", pop.semaine$nb_total)
+pop.semaine <- dcast(pop.semaine, number + name + address ~ rank, value.var = "pop")
+pop.semaine[is.na(pop.semaine)] <- ""
+pop.semaine <- cbind.data.frame(number = pop.semaine$number, 
+                             pop = paste0("<font size=\"3\"><b>", pop.semaine$name, "</b></font size=\"3\"><br>",
+                                          "<em>", pop.semaine$address, "</em><br><br>",
+                                          "<b>", "Classes identifiées :", "</b><br>",
+                                          pop.semaine$`1`, "<br>", pop.semaine$`2`, "<br>", pop.semaine$`3`, "<br>", pop.semaine$`4`, "<br>",
+                                          pop.semaine$`5`, "<br>", pop.semaine$`6`, "<br>", pop.semaine$`7`, "<br>",
+                                          pop.semaine$`8`, "<br>", pop.semaine$`9`, "<br>", pop.semaine$`10`),
+                             stringsAsFactors = F)
+
+stations.semaine <- stations.semaine %>%
+  filter(rank == 1) %>%
+  select(-rank, -nb, -nb_total)
+stations.semaine <- inner_join(stations.semaine, pop.semaine)
+
+# Definition des couleurs
+cols <- c("red", "navy", "orange", "royalblue", "limegreen", 
+          "darkgreen", "chocolate", "magenta", "purple", "#000000")
 
 shinyServer(function(input, output) {
 
-  output$secondSelection <- renderUI({
-    selectInput("classeSelect", "Classe", choices = c("Toutes", unique(as.character(stations[stations$typeJour==input$typeJour,"classe"]))))
-  })
+    output$selectionTypeJour <- renderUI({
+      if(input$mailleClassifSelect=="A la journée"){
+        selectInput("typeSelect", "Type de jour", choices = c("Jours de la semaine", "Weekend"), selected = "Jours de la semaine")
+      }
+    })
+
   
+  output$selectionClasse <- renderUI({
+    if(input$mailleClassifSelect=="A la journée"){
+      selectInput("classeSelect", "Classe", choices = c("Toutes", unique(as.character(stations.jour[stations.jour$typeJour==input$typeSelect,"classe"]))))
+    }else{
+      selectInput("classeSelect", "Classe", choices = c("Toutes", unique(as.character(stations.semaine$classe))))
+    }
+  })
+
   output$carto <- renderLeaflet({
-    
+
     # Filtre sur le type de jour selectionne
-    stations.tmp <- subset(stations, typeJour == input$typeJour)
+    if(input$mailleClassifSelect=="A la journée"){
+      stations.tmp <- subset(stations.jour, typeJour == input$typeSelect)
+    }else{
+      stations.tmp <- stations.semaine
+    }
+    
     stations.tmp$numeroClasse <- dense_rank(unclass(stations.tmp$classe))
-    
+
     # Definition des couleurs
-    cols <- brewer.pal(length(unique(stations.tmp$numeroClasse)), "Dark2")
+    cols <- cols[1:length(unique(stations.tmp$numeroClasse))]
     stations.tmp$colors <- cols[stations.tmp$numeroClasse]
-    
+
     # Filtre sur la classe selectionnee
     if(!is.null(input$classeSelect)){
       if(input$classeSelect != "Toutes"){
@@ -37,7 +98,7 @@ shinyServer(function(input, output) {
     }
 
     # Carte interactive
-    leaflet(stations.tmp) %>% 
+    leaflet(stations.tmp) %>%
       addTiles() %>%
       addCircles(lat = ~latitude, lng = ~longitude, popup = ~ pop , color = ~ colors, opacity = 1, fillOpacity = 1) %>%
       addLegend("topright", colors = unique(stations.tmp$colors), labels = unique(stations.tmp$classe),
@@ -46,56 +107,66 @@ shinyServer(function(input, output) {
                 opacity = 1)
 
   })
-  
-  output$propClasseText <- renderText({
+
+  output$propClasseText <- renderUI({
     if(!is.null(input$classeSelect)){
       if(input$classeSelect != "Toutes"){
-        stations.tmp <- subset(stations, typeJour == input$typeJour)
-        prop <- round(table(stations.tmp$classe)[input$classeSelect]/sum(table(stations.tmp$classe))*100, 1)
-        paste0("Pour les ", input$typeJour, ", la classe ", input$classeSelect, " représente ", prop, "% des stations")
+        if(input$mailleClassifSelect == "A la journée"){
+          stations.tmp <- subset(stations.jour, typeJour == input$typeSelect)
+          prop <- round(table(stations.tmp$classe)[input$classeSelect]/sum(table(stations.tmp$classe))*100, 1)
+          HTML(paste0("Pour les ", input$typeSelect, ", la classe <i>", input$classeSelect, "</i> représente <b>", prop, "%</b> des stations"))
+        }else{
+          stations.tmp <- stations.semaine
+          prop <- round(table(stations.tmp$classe)[input$classeSelect]/sum(table(stations.tmp$classe))*100, 1)
+          HTML(paste0("La classe <i>", input$classeSelect, "</i> représente <b>", prop, "%</b> des stations"))
+        }
       }
     }
 
   })
-  
+
   output$profilsPlot <- renderPlot({
-    
+
     # Filtre sur le type de jour selectionne
-    profils.moy.tmp <- subset(profils.moy, typeJour == input$typeJour)
+    if(input$mailleClassifSelect == "A la journée"){
+      profils.moy.tmp <- subset(profils.moy.jour, typeJour == input$typeSelect)
+    }else{
+      profils.moy.tmp <- profils.moy.semaine
+    }
     profils.moy.tmp$numeroClasse <- dense_rank(unclass(profils.moy.tmp$classe))
     classes <- unique(profils.moy.tmp$classe)
-    
+
     # Definition des couleurs
-    cols <- brewer.pal(length(classes), "Dark2")
+    cols <- cols[1:length(unique(profils.moy.tmp$numeroClasse))]
 
     if(!is.null(input$classeSelect)){
       if(input$classeSelect != "Toutes"){
         profils.moy.tmp <- subset(profils.moy.tmp, classe == input$classeSelect)
         numeroClasse <- unique(profils.moy.tmp$numeroClasse)
         color <- cols[numeroClasse]
-        ggplot(profils.moy.tmp) + 
-          aes(x=time, y=yspline) +
+        ggplot(profils.moy.tmp) +
+          aes(x=time, y=y) +
           geom_line(size=1.5, col=color) +
-          xlab("Heure de la journée") +
+          xlab("Temps") +
           ylab("Taux de vélos disponibles") +
           ggtitle(paste("Profil moyen de la classe", input$classeSelect)) +
           theme_bw() +
           theme(legend.position="none", plot.title=element_text(size = rel(1.5))) +
           scale_y_continuous(labels = scales::percent, limits = c(0,1))
       }else{
-        ggplot(profils.moy.tmp) + 
-          aes(x=time, y=yspline, col=as.character(numeroClasse)) +
+        ggplot(profils.moy.tmp) +
+          aes(x=time, y=y, col=as.character(numeroClasse)) +
           geom_line(size=1.5) +
-          xlab("Heure de la journée") +
+          xlab("Temps") +
           ylab("Taux de vélos disponibles") +
           ggtitle(paste("Profil moyen de la classe", input$classeSelect)) +
           theme_bw() +
           theme(legend.position="none", plot.title=element_text(size = rel(1.5))) +
-          scale_colour_brewer(palette = "Dark2") +
+          scale_colour_manual(values=cols) +
           scale_y_continuous(labels = scales::percent, limits = c(0,1))
       }
     }
-      
+
   })
 
 })
