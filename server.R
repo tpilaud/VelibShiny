@@ -3,6 +3,7 @@ require(leaflet)
 require(dplyr)
 require(ggplot2)
 require(reshape2)
+require(fmsb)
 
 load("stations.RData")
 load("shiny.classif.jour.RData")
@@ -11,6 +12,7 @@ load("profils.moy.jour.RData")
 names(profils.moy.jour)[names(profils.moy.jour)=="yspline"] <- "y"
 load("profils.moy.semaine.RData")
 names(profils.moy.semaine)[names(profils.moy.semaine)=="yfourier"] <- "y"
+load("df.radar.RData")
 
 id.class.jour <- unique(classif.jour$classe)
 id.class.semaine <- unique(classif.semaine$classe)
@@ -57,7 +59,7 @@ stations.semaine <- inner_join(stations.semaine, pop.semaine)
 
 # Definition des couleurs
 cols <- c("red", "navy", "orange", "royalblue", "limegreen", 
-          "darkgreen", "chocolate", "magenta", "purple", "#000000")
+          "magenta", "chocolate", "darkgreen", "purple", "#000000")
 
 shinyServer(function(input, output) {
 
@@ -168,6 +170,45 @@ shinyServer(function(input, output) {
       }
     }
 
+  })
+  
+  output$radarPlot <- renderPlot({
+    if(input$mailleClassifSelect == "A la journée"){
+      if(input$typeSelect == "Jours de la semaine"){
+        df.radar.tmp <- df.radar.j.lmmjv
+      }else{
+        df.radar.tmp <- df.radar.j.sd
+      }
+      df.radar.tmp$numeroClasse <- dense_rank(sapply(df.radar.tmp$classe, function(x) which(id.class.jour==x)))
+    }else{
+      df.radar.tmp <- df.radar.s
+      df.radar.tmp$numeroClasse <- dense_rank(sapply(df.radar.tmp$classe, function(x) which(id.class.semaine==x)))
+    }
+    maxmin <- rbind.data.frame(sapply(df.radar.tmp[,!names(df.radar.tmp)%in%c("classe", "numeroClasse")], max),
+                               sapply(df.radar.tmp[,!names(df.radar.tmp)%in%c("classe", "numeroClasse")], min))
+    names(maxmin) <- names(df.radar.tmp)[!names(df.radar.tmp)%in%c("classe", "numeroClasse")]
+    classes <- unique(df.radar.tmp$classe)
+    if(input$classeSelect != "Toutes"){
+      cla=input$classeSelect
+      col=cols[df.radar.tmp[which(as.character(df.radar.tmp$classe)==cla),"numeroClasse"]]
+      dat <- df.radar.tmp %>%
+        filter(classe == cla) %>%
+        select(-classe, -numeroClasse)
+      dat <- rbind.data.frame(maxmin, dat)
+      radarchart(dat, axistype=1, pty=16, plty=1, pdensity=50, caxislabels=rep("", 5),
+                 axislabcol="grey", pcol=col, pfcol=col, na.itp=FALSE, title = paste0("Caractéristiques des stations de la classe ", cla),
+                 vlabels = c("Emplois", "Habitations", "Jeunes & actifs",
+                             "Accessibilite aux transports", "Enseignement"))
+    }else{
+      col=cols[df.radar.tmp$numeroClasse]
+      dat <- df.radar.tmp %>%
+        select(-classe, -numeroClasse)
+      dat <- rbind.data.frame(maxmin, dat)
+      radarchart(dat, axistype=1, pty=16, plty=1, pdensity=50, caxislabels=rep("", 5),
+                 axislabcol="grey", pcol=col, pfcol=col, na.itp=FALSE, title = "Caractéristiques des stations",
+                 vlabels = c("Emplois", "Habitations", "Jeunes & actifs",
+                             "Accessibilite aux transports", "Enseignement"))
+    }
   })
 
 })
